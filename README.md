@@ -1,146 +1,191 @@
 # dsh-archive-cleaner
 
-A DeepSeek Harness bundle that adds one row to **Settings → General** and lets you
-clean up **archived conversations** — the ones you cannot delete from the UI.
+**DeepSeek Harness（DSH）插件：清理已归档的对话/会话，释放磁盘空间。**
 
-Archiving in DSH only hides a session. Its log is kept forever under
-`$DSH_HOME/sessions/<workspace>/<session-id>/`, and the sidebar offers no delete action
-at all. On a profile that has been in use for a while this quietly becomes hundreds of
-megabytes of conversations nobody will ever open again.
+[中文说明](#中文说明) · [English](#english) · [更新日志](CHANGELOG.md) · [MIT License](LICENSE)
 
-This bundle lists them, shows how much each one costs, and moves the ones you select
-into a quarantine folder.
+> DSH 里的「归档」只是把对话从侧栏藏起来，`session.v4.jsonl.zstd` 一个字节都不会删，
+> 而且界面上**没有任何删除入口**。用久了，几百 MB 没人会再打开的会话就一直躺在磁盘上。
+> 这个插件在 **设置 → 通用** 里加一行，列出全部已归档会话（工作区、创建时间、占用大小），
+> 勾选后把它们移进隔离区——或者，如果你明确勾选，直接删除。
 
-<sub>中文说明见文末。</sub>
-
-## What it does
-
-| Step | Result |
-|---|---|
-| Open **Settings → General** | One extra row: *Clean archived workspaces* |
-| Click **Open** | A dialog lists every archived session: workspace, creation time, size, checkbox |
-| Select some (or all), then **Next** | A confirmation page repeats the count, the total size and the quarantine directory |
-| Confirm | Selected sessions are **moved** to `$DSH_HOME/.session-trash/<timestamp>/`, with a `restore-map.json` next to them |
-| Tick **Delete the files instead of quarantining them** | Same flow, but the directories are removed outright — no quarantine copy, no restore map |
-| Restart DSH | The sidebar no longer lists them; in quarantine mode every byte is still on disk |
-
-By default nothing is deleted. To restore, move a directory from
-`.session-trash/<timestamp>/<id>` back to the path recorded in `restore-map.json`, then
-restart DSH. The opt-in delete mode exists for people who already emptied their
-quarantine and want the disk space back in one step; it is irreversible.
-
-A row marked **(no longer on disk)** has an archived registry entry but no files left —
-usually because it was moved by hand or by an older cleanup. Selecting it drops the stale
-entry without moving anything, which is how the sidebar finally forgets it.
-
-## Install
-
-```bash
-dsh plugin add github:dongfangxy/dsh-archive-cleaner
-```
-
-The same string works in the app: **Settings → Plugins → Add plugin** (the field accepts a
-package name, a Git address, a tarball, or an absolute local path). The installer records a
-real dependency and applies the bundle patch, so later `pnpm install` runs keep it.
-
-From a local checkout, declare a link dependency instead of copying the folder into
-`node_modules` (a copied folder is pruned by the next install):
-
-```json
-"dependencies": {
-  "dsh-archive-cleaner": "link:<absolute path to this checkout>"
-}
-```
-
-then `pnpm install --dir <profile>` and restart DSH.
-
-## How it works
-
-A cordis bundle with a host half and a client half:
-
-| File | Role |
-|---|---|
-| `cordis.patch.yml` | inserts one loader row named `archive-cleaner` into the profile |
-| `index.js` | host: `GET /archive-cleaner/list`, `POST /archive-cleaner/clean`; all filesystem work happens here |
-| `client.js` | client: registers the Settings → General row (`settings.general.item`) and renders the dialog |
-| `package.json` | `dsh.bundle.patch` and `dsh.client` declarations |
-
-The Host resolves the profile from `$DSH_HOME` (falling back to `~/.dsh`), reads
-`storages/workspace.json` for `global.archivedSessionIds`, and measures each session
-directory on disk. Cleaning is `rename()` into the quarantine folder, then pruning the
-moved ids from `workspace.json` and `session_projcache.json` (both backed up first).
-
-## Safety
-
-- **Only archived ids can be cleaned.** A request naming a live session, a malformed id,
-  or a path that escapes `$DSH_HOME/sessions/` is skipped, and the response says why.
-- **Quarantine by default.** Every byte stays in `.session-trash/<timestamp>/`; the
-  procedure is reversible by hand.
-- **Deleting is a separate, explicit choice.** `mode: 'purge'` is only sent when the
-  confirmation page's checkbox is ticked, the confirm button changes label to
-  *Delete permanently*, and the page repeats that nothing can be restored. Unknown modes
-  are rejected before any file is touched.
-- **Registry edits are backed up** as `workspace.json.bak-<timestamp>` before writing.
-- **No path comes from the client.** The dialog sends session ids and a mode; the host
-  resolves and validates every directory itself.
-- A session whose directory already disappeared is listed as `missing` and cannot be
-  selected.
-
-## Known limitations
-
-- The entry lives in **Settings → General**, not in the sidebar account menu: that menu is
-  compiled into `@deepseek-ai/dsh-client-ui-settings-account` and exposes no slot.
-- Sessions moved while DSH is running disappear from the sidebar only after a restart.
-- The plugin reads the profile registry directly. If a future DSH version changes
-  `workspace.json`, the list will come back empty rather than guess.
-- Windows, macOS and Linux all work; the tests run on any platform.
-
-## Development
-
-```bash
-npm test          # node --test "test/*.test.mjs"
-```
-
-The tests build a throwaway profile under the OS temp directory and cover listing,
-quarantine, registry pruning, malformed ids, and path traversal.
-
-`client.js` is loaded by the Host's module loader and may `require('react')`,
-`require('react-dom')` and `require('@deepseek-ai/dsh-client-ui-primitives')`.
-
-## License
-
-MIT © Chengxi Zhang
+适用关键词：DeepSeek Harness 插件 / DSH plugin / 会话归档清理 / 对话清理 / 磁盘空间 / archive cleaner / session cleanup / cordis bundle。
 
 ---
 
 ## 中文说明
 
-DSH 的「归档」只是隐藏：会话日志永远留在 `$DSH_HOME/sessions/<工作区>/<会话 id>/`，
-界面上没有任何删除入口。用久了就是几百 MB 没人会再打开的对话。
+### 问题：归档 ≠ 删除
 
-这个 bundle 在 **设置 → 通用** 里加一行「清理已归档工作区」：
+DSH 把每个会话的完整日志写在：
 
-1. 点这一行的「开始清理」→ 弹窗列出每个已归档会话（工作区、创建时间、占用大小、勾选框）；
-2. 勾选后点「下一步」进入**确认页**：显示条数、合计大小、隔离目录，以及一个选项
-   **「直接删除文件（不保留隔离区）」**——不勾就只是移动（默认），勾了按钮会变成
-   「彻底删除」并提示无法恢复；
-3. 确认 → 所选会话被**移动**到 `$DSH_HOME/.session-trash/<时间戳>/`（勾了删除则直接删掉），
-   隔离模式下旁边生成 `restore-map.json` 记录原来的位置；
-4. 重启 DSH → 侧栏不再列出它们。
+```
+$DSH_HOME/sessions/<工作区>/<session-id>/session.v4.jsonl.zstd
+```
 
-**默认没有任何删除动作**。要恢复：把 `.session-trash/<时间戳>/<会话 id>` 搬回
-`restore-map.json` 里记录的路径，重启即可。勾了「直接删除」的那批无法恢复。
+「归档」只是把 id 记进 `$DSH_HOME/storages/workspace.json` 的 `global.archivedSessionIds`，
+界面上从此看不见它——但文件、统计缓存 `session_projcache.json` 里的记录，全都还在。
+官方的右键菜单只有「置顶 / 归档 / 取消归档 / 重命名 / 派生 / 复制 Session ID」，**没有删除**。
 
-安装：
+实测一个用了几个月的 profile：**38 个已归档会话，合计 133.9 MB**，其中一个单会话就有 10.2 MB。
+
+### 它做什么
+
+| 步骤 | 结果 |
+|---|---|
+| 打开 **设置 → 通用** | 多出一行「清理已归档工作区」 |
+| 点「开始清理」 | 弹窗列出全部已归档会话：工作区路径、创建时间、会话 id、占用大小、勾选框 |
+| 勾选后点「下一步」 | 进入**确认页**：条数、合计大小、隔离目录，以及「直接删除文件」选项 |
+| 确认 | 所选会话被移到 `$DSH_HOME/.session-trash/<时间戳>/`，并在旁边写 `restore-map.json` |
+| 勾选「直接删除文件（不保留隔离区）」 | 同上，但目录被真正删除：没有隔离区、没有 restore-map，**不可恢复** |
+| 重启 DSH | 侧栏不再列出这些会话 |
+
+### 两种清理模式
+
+| 模式 | 行为 | 可否恢复 |
+|---|---|---|
+| **隔离**（默认） | `rename()` 到 `.session-trash/<时间戳>/<id>`，写 `restore-map.json` 记录原路径与工作区 | 可以：把目录搬回 `restore-map.json` 里的路径，重启即可 |
+| **直接删除**（需在确认页显式勾选） | `rm -rf` 会话目录，只保留注册表裁剪 | 不可以 |
+
+两种模式都会把 id 从 `workspace.json` 的三处（`archivedSessionIds`、`pinnedSessionIds`、
+各工作区的 `sessionIds`）和 `session_projcache.json` 里剔除，改写前先存
+`*.bak-<时间戳>` 备份。
+
+### 安装
+
+最省事的方式（会把依赖写进 profile，之后 `pnpm install` 不会把它清掉）：
 
 ```bash
 dsh plugin add github:dongfangxy/dsh-archive-cleaner
 ```
 
-或在应用里 **设置 → 插件 → Add plugin** 填同一串。
+应用内同样可以：**设置 → 插件 → Add plugin**，填同一串。
 
-安全设计：只有「已归档」的 id 能被清理；非法 id、越界路径、已消失的目录一律跳过并说明原因；
-注册表改写前自动备份；客户端从不提供路径，只发 id，路径由宿主自己解析校验。
+**不要**把仓库目录手工拷进 `node_modules`——下一次 `pnpm install` 会把它当多余包删除。
+要改源码，就声明一个 `link:` 依赖：
 
-已知限制：入口在设置按钮**旁边**而不是账号菜单里——那个菜单编译在官方包里，没有留给第三方的插槽；
-运行中清理的会话要重启后才会从侧栏消失。
+```jsonc
+// <profile>/package.json
+"dependencies": {
+  "dsh-archive-cleaner": "link:<本仓库的绝对路径>"
+}
+```
+
+然后 `pnpm install --dir <profile>`，重启 DSH。
+
+### 安全设计
+
+- **只认「已归档」的 id**：会话必须同时出现在 `archivedSessionIds` 里，否则跳过并说明原因；
+- **客户端不传路径**：前端只发 id 与模式，目录由宿主自己解析；
+- **路径越界拒绝**：解析后的目录必须仍在 `$DSH_HOME/sessions/` 之内；
+- **未知模式直接拒绝**：`mode` 只接受 `quarantine` / `purge`，其他值在任何文件被碰之前返回错误；
+- **注册表改写前备份**：`workspace.json.bak-<时间戳>`、`session_projcache.json.bak-<时间戳>`；
+- **只剩登记的空会话也可清**：磁盘上已无文件的已归档 id 会标成「磁盘上已不存在，选中只清登记」，
+  选中后只删登记、不动文件——这正是手工清理留下的残留条目。
+
+### 已知限制
+
+- 入口在 **设置 → 通用**，不在侧栏账号菜单里：那个菜单编译在
+  `@deepseek-ai/dsh-client-ui-settings-account` 里，没有留给第三方的插槽；
+- 运行中清理的会话，要重启 DSH 后才会从侧栏消失（侧栏状态在宿主内存里）；
+- 插件直接读 profile 的 `workspace.json`；未来 DSH 若改变该文件结构，列表会变空而不是瞎猜；
+- Windows / macOS / Linux 通用，单元测试不依赖平台。
+
+### 开发
+
+```bash
+npm test        # node --test "test/*.test.mjs"
+```
+
+测试会在系统临时目录里搭一个假 profile，覆盖：列目录与统计、隔离、注册表裁剪、
+直接删除、非法 id、路径穿越、空选择、空归档集。`client.js` 由宿主的模块加载器执行，
+可以 `require('react')`、`require('react-dom')`。
+
+### 许可
+
+MIT © Chengxi Zhang
+
+---
+
+## English
+
+**A DeepSeek Harness (DSH) plugin that cleans up archived conversations and frees disk space.**
+
+### The problem: archiving is not deleting
+
+DSH keeps every session log at `$DSH_HOME/sessions/<workspace>/<session-id>/session.v4.jsonl.zstd`.
+Archiving only appends the id to `global.archivedSessionIds` in
+`$DSH_HOME/storages/workspace.json`, which hides the row from the sidebar — the bytes, and the
+entry in `session_projcache.json`, stay exactly where they were. The row menu offers pin,
+archive, unarchive, rename, fork and copy-session-id, but **no delete**.
+
+On one profile in daily use this added up to **38 archived sessions, 133.9 MB**, with a single
+session taking 10.2 MB.
+
+### What it does
+
+| Step | Result |
+|---|---|
+| Open **Settings → General** | One extra row: *Clean archived workspaces* |
+| Click **Open** | A dialog lists every archived session: workspace, creation time, id, size, checkbox |
+| Select rows, click **Next** | A confirmation page repeats the count, the total size and the quarantine folder |
+| Confirm | Selected sessions move to `$DSH_HOME/.session-trash/<timestamp>/` with a `restore-map.json` |
+| Tick **Delete the files instead of quarantining them** | Same flow, but the directories are removed: no quarantine, no restore map, **irreversible** |
+| Restart DSH | The sidebar stops listing them |
+
+### Two modes
+
+| Mode | Behaviour | Reversible |
+|---|---|---|
+| **Quarantine** (default) | `rename()` into `.session-trash/<timestamp>/<id>`, with a `restore-map.json` recording the original path and workspace | Yes — move the directory back and restart |
+| **Delete** (opt-in on the confirm page) | `rm -rf` the session directory; only the registry entries are pruned | No |
+
+Both modes prune the id from three places in `workspace.json` (`archivedSessionIds`,
+`pinnedSessionIds`, every workspace's `sessionIds`) and from `session_projcache.json`, writing a
+`*.bak-<timestamp>` copy of each file first.
+
+### Install
+
+```bash
+dsh plugin add github:dongfangxy/dsh-archive-cleaner
+```
+
+The same string works in the app: **Settings → Plugins → Add plugin**.
+
+Do **not** copy the checkout into `node_modules`: the next `pnpm install` prunes it. For a local
+checkout declare a `link:` dependency in `<profile>/package.json` and run
+`pnpm install --dir <profile>`.
+
+### Safety
+
+- Only ids that the profile calls **archived** are actionable; anything else is skipped with a reason.
+- The client sends ids and a mode, never a path — the host resolves every directory itself.
+- A resolved directory must still live under `$DSH_HOME/sessions/`, or it is refused.
+- `mode` accepts `quarantine` or `purge` only; an unknown value is rejected before any file is touched.
+- Registry rewrites are backed up as `*.bak-<timestamp>`.
+- Archived ids whose files are already gone are listed as *no longer on disk* and only lose their
+  registry entry — the usual leftover after a manual cleanup.
+
+### Known limitations
+
+- The entry lives in **Settings → General**, not the sidebar account menu: that menu is compiled
+  into `@deepseek-ai/dsh-client-ui-settings-account` and exposes no slot.
+- Sessions cleaned while DSH runs disappear from the sidebar after a restart.
+- The plugin reads the profile registry directly; if a future DSH changes `workspace.json`, the
+  list comes back empty rather than guessing.
+- Windows, macOS and Linux; the unit tests are platform independent.
+
+### Development
+
+```bash
+npm test        # node --test "test/*.test.mjs"
+```
+
+The tests build a throwaway profile under the OS temp directory and cover listing,
+quarantine, registry pruning, purge, malformed ids, path traversal, empty selection and an
+empty archive set. `client.js` runs under the host module loader and may `require('react')`
+and `require('react-dom')`.
+
+### License
+
+MIT © Chengxi Zhang
