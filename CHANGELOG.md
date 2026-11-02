@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — 2026-11-02
+
+- Remove the sidebar footer entry. The plugin now has exactly one entry point: a row
+  in **Settings → General**. The Tools menu, its icons and its dictionaries are gone.
+- `dsh.client.inject` now names the settings packages instead of the sidebar.
+
 ## 0.2.0 — 2026-11-02
 
 - Add a delete mode: the confirmation page carries a checkbox

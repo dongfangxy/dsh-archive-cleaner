@@ -1,6 +1,6 @@
 # dsh-archive-cleaner
 
-A DeepSeek Harness bundle that adds a **Tools** entry at the sidebar foot and lets you
+A DeepSeek Harness bundle that adds one row to **Settings → General** and lets you
 clean up **archived conversations** — the ones you cannot delete from the UI.
 
 Archiving in DSH only hides a session. Its log is kept forever under
@@ -17,9 +17,10 @@ into a quarantine folder.
 
 | Step | Result |
 |---|---|
-| Click **Tools** at the sidebar foot | A small menu opens; the item shows how many archived sessions exist |
-| Click **Clean archived workspaces…** | A dialog lists every archived session: workspace, creation time, size, checkbox |
-| Select some (or all), confirm | Selected sessions are **moved** to `$DSH_HOME/.session-trash/<timestamp>/`, with a `restore-map.json` next to them |
+| Open **Settings → General** | One extra row: *Clean archived workspaces* |
+| Click **Open** | A dialog lists every archived session: workspace, creation time, size, checkbox |
+| Select some (or all), then **Next** | A confirmation page repeats the count, the total size and the quarantine directory |
+| Confirm | Selected sessions are **moved** to `$DSH_HOME/.session-trash/<timestamp>/`, with a `restore-map.json` next to them |
 | Tick **Delete the files instead of quarantining them** | Same flow, but the directories are removed outright — no quarantine copy, no restore map |
 | Restart DSH | The sidebar no longer lists them; in quarantine mode every byte is still on disk |
 
@@ -61,7 +62,7 @@ A cordis bundle with a host half and a client half:
 |---|---|
 | `cordis.patch.yml` | inserts one loader row named `archive-cleaner` into the profile |
 | `index.js` | host: `GET /archive-cleaner/list`, `POST /archive-cleaner/clean`; all filesystem work happens here |
-| `client.js` | client: registers the Tools action into `sidebar.footer.action`, renders the menu and the dialog |
+| `client.js` | client: registers the Settings → General row (`settings.general.item`) and renders the dialog |
 | `package.json` | `dsh.bundle.patch` and `dsh.client` declarations |
 
 The Host resolves the profile from `$DSH_HOME` (falling back to `~/.dsh`), reads
@@ -87,8 +88,8 @@ moved ids from `workspace.json` and `session_projcache.json` (both backed up fir
 
 ## Known limitations
 
-- The Tools entry sits **beside** the Settings button, not inside the account menu: that
-  menu is compiled into `@deepseek-ai/dsh-client-ui-settings-account` and exposes no slot.
+- The entry lives in **Settings → General**, not in the sidebar account menu: that menu is
+  compiled into `@deepseek-ai/dsh-client-ui-settings-account` and exposes no slot.
 - Sessions moved while DSH is running disappear from the sidebar only after a restart.
 - The plugin reads the profile registry directly. If a future DSH version changes
   `workspace.json`, the list will come back empty rather than guess.
@@ -117,16 +118,15 @@ MIT © Chengxi Zhang
 DSH 的「归档」只是隐藏：会话日志永远留在 `$DSH_HOME/sessions/<工作区>/<会话 id>/`，
 界面上没有任何删除入口。用久了就是几百 MB 没人会再打开的对话。
 
-这个 bundle 在**侧栏底部、设置按钮旁边**加一个「工具」入口：
+这个 bundle 在 **设置 → 通用** 里加一行「清理已归档工作区」：
 
-1. 点「工具」→ 弹出菜单，菜单项上标着已归档会话的数量；
-2. 点「清理已归档工作区…」→ 弹窗列出每个已归档会话（工作区、创建时间、占用大小、勾选框）；
-3. 勾选后点「下一步」进入**确认页**：显示条数、合计大小、隔离目录，以及一个选项
+1. 点这一行的「开始清理」→ 弹窗列出每个已归档会话（工作区、创建时间、占用大小、勾选框）；
+2. 勾选后点「下一步」进入**确认页**：显示条数、合计大小、隔离目录，以及一个选项
    **「直接删除文件（不保留隔离区）」**——不勾就只是移动（默认），勾了按钮会变成
    「彻底删除」并提示无法恢复；
-4. 确认 → 所选会话被**移动**到 `$DSH_HOME/.session-trash/<时间戳>/`（勾了删除则直接删掉），
+3. 确认 → 所选会话被**移动**到 `$DSH_HOME/.session-trash/<时间戳>/`（勾了删除则直接删掉），
    隔离模式下旁边生成 `restore-map.json` 记录原来的位置；
-5. 重启 DSH → 侧栏不再列出它们。
+4. 重启 DSH → 侧栏不再列出它们。
 
 **默认没有任何删除动作**。要恢复：把 `.session-trash/<时间戳>/<会话 id>` 搬回
 `restore-map.json` 里记录的路径，重启即可。勾了「直接删除」的那批无法恢复。

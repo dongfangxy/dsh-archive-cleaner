@@ -3,22 +3,16 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react');
     const ReactDOM = require('react-dom');
-    const primitives = require('@deepseek-ai/dsh-client-ui-primitives');
     const h = React.createElement;
-
-    const TrashIcon = primitives.IconTrashOutlineRegular;
-    const ChevronIcon = primitives.IconChevronRightOutlineRegular;
 
     const NS = 'archive-cleaner';
 
     // Dictionary values stay plain strings: `t(key)` returns the string, so
     // sentences containing numbers are composed in code.
     const zh = {
-      action: '工具',
-      menuTitle: '工具',
-      menuClean: '清理已归档工作区…',
-      menuCleanHint: '把已归档会话移到隔离区，并从侧栏移除',
-      menuEmpty: '没有可清理的归档会话',
+      rowTitle: '清理已归档工作区',
+      rowHint: '把已归档会话移到隔离区（可恢复），或勾选后直接删除，并从侧栏移除',
+      rowButton: '开始清理',
       dialogTitle: '清理已归档工作区',
       dialogIntro: '归档只是隐藏：会话文件仍完整保留在磁盘上。勾选后会被移到隔离区（不删除），随时可以搬回来。',
       loading: '正在读取已归档会话…',
@@ -55,11 +49,9 @@ window.__ModuleLoader__.load({
     };
 
     const en = {
-      action: 'Tools',
-      menuTitle: 'Tools',
-      menuClean: 'Clean archived workspaces…',
-      menuCleanHint: 'Move archived sessions to a quarantine folder and drop them from the sidebar',
-      menuEmpty: 'Nothing to clean',
+      rowTitle: 'Clean archived workspaces',
+      rowHint: 'Move archived sessions to a quarantine folder (restorable), or delete them outright, and drop them from the sidebar',
+      rowButton: 'Open',
       dialogTitle: 'Clean archived workspaces',
       dialogIntro:
         'Archiving only hides a session: its log stays on disk. Selected sessions are moved to a quarantine folder (not deleted) and can be restored later.',
@@ -105,15 +97,12 @@ window.__ModuleLoader__.load({
       border: 'var(--dsw-alias-border-l2, rgba(128,128,128,0.24))',
       // The menu token is translucent by design (it relies on a backdrop blur), so
       // a full dialog painted with it lets the page behind show through. Dialogs
-      // and rows use opaque layer tokens instead.
-      menuSurface: 'var(--dsw-menu-surface-fill, var(--dsw-alias-bg-layer-2, #1f1f1f))',
+      // use an opaque layer token instead.
       surface: 'var(--dsw-alias-bg-layer-1, #17181c)',
-      raised: 'var(--dsw-alias-bg-layer-2, #202127)',
       hover: 'var(--dsw-alias-interactive-bg-hover, rgba(128,128,128,0.16))',
       dangerHover: 'var(--dsw-alias-interactive-bg-hover-danger, rgba(220,80,80,0.16))',
       accent: 'var(--dsw-alias-button-primary-fill, #4d6bfe)',
       shadow: 'var(--dsw-specific-menu, 0 10px 30px rgba(0,0,0,0.35))',
-      radius: 'var(--dsw-radius-md, 10px)',
       warn: 'var(--dsw-alias-state-warn-label, #ffb454)',
     };
 
@@ -161,64 +150,6 @@ window.__ModuleLoader__.load({
     }
 
     const styles = {
-      trigger: (wide) => ({
-        display: 'flex',
-        alignItems: 'center',
-        gap: wide ? '10px' : '0px',
-        justifyContent: wide ? 'flex-start' : 'center',
-        width: '100%',
-        height: '36px',
-        padding: wide ? '0 10px' : '0px',
-        border: 0,
-        borderRadius: tokens.radius,
-        background: 'transparent',
-        color: tokens.secondary,
-        font: 'inherit',
-        fontSize: '13px',
-        cursor: 'pointer',
-      }),
-      menu: {
-        position: 'fixed',
-        zIndex: 2147483000,
-        minWidth: '264px',
-        maxWidth: '320px',
-        padding: '6px',
-        borderRadius: tokens.radius,
-        background: tokens.menuSurface,
-        border: `1px solid ${tokens.border}`,
-        boxShadow: tokens.shadow,
-        backdropFilter: 'var(--dsw-menu-backdrop-filter, none)',
-      },
-      menuTitle: {
-        padding: '6px 10px 4px',
-        fontSize: '11px',
-        letterSpacing: '0.06em',
-        textTransform: 'uppercase',
-        color: tokens.tertiary,
-      },
-      menuItem: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        width: '100%',
-        padding: '8px 10px',
-        border: 0,
-        borderRadius: 'var(--dsw-radius-sm, 8px)',
-        background: 'transparent',
-        color: tokens.label,
-        font: 'inherit',
-        fontSize: '13px',
-        textAlign: 'left',
-        cursor: 'pointer',
-      },
-      menuText: { display: 'flex', flexDirection: 'column', gap: '2px' },
-      menuHint: { fontSize: '11px', color: tokens.tertiary },
-      menuCount: {
-        marginLeft: 'auto',
-        fontSize: '11px',
-        color: tokens.tertiary,
-        fontVariantNumeric: 'tabular-nums',
-      },
       backdrop: {
         position: 'fixed',
         inset: 0,
@@ -360,6 +291,27 @@ window.__ModuleLoader__.load({
         color: kind === 'error' ? tokens.warn : tokens.secondary,
         background: kind === 'error' ? tokens.dangerHover : tokens.hover,
       }),
+      settingsRow: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '16px',
+        padding: '16px 0',
+        borderBottom: `1px solid ${tokens.border}`,
+      },
+      settingsText: { display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '0px' },
+      settingsTitle: { fontSize: '14px', color: tokens.label },
+      settingsHint: { fontSize: '12px', lineHeight: '18px', color: tokens.secondary },
+      settingsButton: {
+        flex: '0 0 auto',
+        padding: '6px 14px',
+        fontSize: '13px',
+        borderRadius: 'var(--dsw-radius-sm, 8px)',
+        border: `1px solid ${tokens.border}`,
+        background: 'transparent',
+        color: tokens.label,
+        cursor: 'pointer',
+      },
     };
 
     function CleanerDialog({ t, onClose }) {
@@ -636,158 +588,22 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function ToolsAction({ wide, t }) {
-      const [menuOpen, setMenuOpen] = React.useState(false);
-      const [dialogOpen, setDialogOpen] = React.useState(false);
-      const [count, setCount] = React.useState(null);
-      const [anchor, setAnchor] = React.useState(null);
-      const triggerRef = React.useRef(null);
-      const menuRef = React.useRef(null);
-
-      const openMenu = React.useCallback(() => {
-        const rect = triggerRef.current?.getBoundingClientRect();
-        setAnchor(rect ? { left: rect.left, top: rect.top } : null);
-        setMenuOpen(true);
-        readList()
-          .then((body) => setCount(body.totals?.count ?? body.sessions?.length ?? 0))
-          .catch(() => setCount(null));
-      }, []);
-
-      React.useEffect(() => {
-        if (!menuOpen) return undefined;
-        const onKey = (event) => {
-          if (event.key === 'Escape') setMenuOpen(false);
-        };
-        const onDown = (event) => {
-          // The trigger and the menu are siblings, not nested: testing only the
-          // trigger would close the menu on mousedown and swallow the item click.
-          if (triggerRef.current?.contains(event.target)) return;
-          if (menuRef.current?.contains(event.target)) return;
-          setMenuOpen(false);
-        };
-        document.addEventListener('keydown', onKey);
-        document.addEventListener('mousedown', onDown);
-        return () => {
-          document.removeEventListener('keydown', onKey);
-          document.removeEventListener('mousedown', onDown);
-        };
-      }, [menuOpen]);
-
-      const menuStyle = anchor
-        ? {
-            ...styles.menu,
-            left: `${Math.max(8, Math.min(anchor.left, window.innerWidth - 300))}px`,
-            bottom: `${Math.max(8, window.innerHeight - anchor.top + 6)}px`,
-          }
-        : { ...styles.menu, left: '12px', bottom: '64px' };
-
-      return h(
-        React.Fragment,
-        null,
-        h(
-          'button',
-          {
-            ref: triggerRef,
-            type: 'button',
-            style: styles.trigger(wide),
-            title: t('action'),
-            'aria-haspopup': 'menu',
-            'aria-expanded': menuOpen,
-            onClick: () => (menuOpen ? setMenuOpen(false) : openMenu()),
-            onMouseEnter: (event) => {
-              event.currentTarget.style.background = tokens.hover;
-            },
-            onMouseLeave: (event) => {
-              event.currentTarget.style.background = 'transparent';
-            },
-          },
-          h(TrashIcon, { size: 16 }),
-          wide ? h('span', null, t('action')) : null,
-          wide ? h('span', { style: { marginLeft: 'auto', opacity: 0.5 } }, h(ChevronIcon, { size: 14 })) : null,
-        ),
-        // Portalled: the sidebar footer may sit inside a transformed ancestor,
-        // which would make `position: fixed` resolve against it and clip the menu.
-        menuOpen
-          ? ReactDOM.createPortal(
-              h(
-                'div',
-                { ref: menuRef, style: menuStyle, role: 'menu', 'aria-label': t('menuTitle') },
-                h('div', { style: styles.menuTitle }, t('menuTitle')),
-                h(
-                  'button',
-                  {
-                    type: 'button',
-                    role: 'menuitem',
-                    style: styles.menuItem,
-                    onMouseEnter: (event) => {
-                      event.currentTarget.style.background = tokens.hover;
-                    },
-                    onMouseLeave: (event) => {
-                      event.currentTarget.style.background = 'transparent';
-                    },
-                    onClick: () => {
-                      setMenuOpen(false);
-                      setDialogOpen(true);
-                    },
-                  },
-                  h(
-                    'span',
-                    { style: styles.menuText },
-                    h('span', null, t('menuClean')),
-                    h('span', { style: styles.menuHint }, count === 0 ? t('menuEmpty') : t('menuCleanHint')),
-                  ),
-                  count === null ? null : h('span', { style: styles.menuCount }, String(count)),
-                ),
-              ),
-              document.body,
-            )
-          : null,
-        dialogOpen ? h(CleanerDialog, { t, onClose: () => setDialogOpen(false) }) : null,
-      );
-    }
-
-    /**
-     * Secondary entry point in Settings → General. Kept because the sidebar
-     * footer seat is newer than the settings row slot: when a host renders the
-     * footer differently, this row still reaches the same dialog.
-     */
+    /** Settings → General row: the only entry point of this plugin. */
     function SettingsRow({ t }) {
       const [open, setOpen] = React.useState(false);
       return h(
         'div',
-        {
-          style: {
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '16px',
-            padding: '16px 0',
-            borderBottom: `1px solid ${tokens.border}`,
-          },
-        },
+        { style: styles.settingsRow },
         h(
           'div',
-          { style: { display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '0px' } },
-          h('div', { style: { fontSize: '14px', color: tokens.label } }, t('dialogTitle')),
-          h('div', { style: { fontSize: '12px', color: tokens.secondary } }, t('menuCleanHint')),
+          { style: styles.settingsText },
+          h('div', { style: styles.settingsTitle }, t('rowTitle')),
+          h('div', { style: styles.settingsHint }, t('rowHint')),
         ),
         h(
           'button',
-          {
-            type: 'button',
-            style: {
-              flex: '0 0 auto',
-              padding: '6px 14px',
-              fontSize: '13px',
-              borderRadius: 'var(--dsw-radius-sm, 8px)',
-              border: `1px solid ${tokens.border}`,
-              background: 'transparent',
-              color: tokens.label,
-              cursor: 'pointer',
-            },
-            onClick: () => setOpen(true),
-          },
-          t('action'),
+          { type: 'button', style: styles.settingsButton, onClick: () => setOpen(true) },
+          t('rowButton'),
         ),
         open ? h(CleanerDialog, { t, onClose: () => setOpen(false) }) : null,
       );
@@ -798,13 +614,6 @@ window.__ModuleLoader__.load({
     function apply(ctx) {
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'archive-cleaner: dictionaries');
       const t = ctx.locale.bind(NS);
-
-      ctx.slots.inject('sidebar.footer.action', () =>
-        ctx.slots.register(
-          { name: 'sidebar.footer.action', id: 'archive-cleaner', order: 20, label: () => t('action') },
-          (props) => h(ToolsAction, { ...props, t }),
-        ),
-      );
 
       ctx.slots.inject('settings.general.item', () =>
         ctx.slots.register(
