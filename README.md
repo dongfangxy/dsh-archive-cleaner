@@ -20,10 +20,13 @@ into a quarantine folder.
 | Click **Tools** at the sidebar foot | A small menu opens; the item shows how many archived sessions exist |
 | Click **Clean archived workspaces…** | A dialog lists every archived session: workspace, creation time, size, checkbox |
 | Select some (or all), confirm | Selected sessions are **moved** to `$DSH_HOME/.session-trash/<timestamp>/`, with a `restore-map.json` next to them |
-| Restart DSH | The sidebar no longer lists them; every byte is still on disk in the quarantine folder |
+| Tick **Delete the files instead of quarantining them** | Same flow, but the directories are removed outright — no quarantine copy, no restore map |
+| Restart DSH | The sidebar no longer lists them; in quarantine mode every byte is still on disk |
 
-Nothing is deleted. To restore, move a directory from `.session-trash/<timestamp>/<id>`
-back to the path recorded in `restore-map.json`, then restart DSH.
+By default nothing is deleted. To restore, move a directory from
+`.session-trash/<timestamp>/<id>` back to the path recorded in `restore-map.json`, then
+restart DSH. The opt-in delete mode exists for people who already emptied their
+quarantine and want the disk space back in one step; it is irreversible.
 
 A row marked **(no longer on disk)** has an archived registry entry but no files left —
 usually because it was moved by hand or by an older cleanup. Selecting it drops the stale
@@ -70,11 +73,15 @@ moved ids from `workspace.json` and `session_projcache.json` (both backed up fir
 
 - **Only archived ids can be cleaned.** A request naming a live session, a malformed id,
   or a path that escapes `$DSH_HOME/sessions/` is skipped, and the response says why.
-- **Quarantine, not delete.** Every byte stays in `.session-trash/<timestamp>/`; the
+- **Quarantine by default.** Every byte stays in `.session-trash/<timestamp>/`; the
   procedure is reversible by hand.
+- **Deleting is a separate, explicit choice.** `mode: 'purge'` is only sent when the
+  confirmation page's checkbox is ticked, the confirm button changes label to
+  *Delete permanently*, and the page repeats that nothing can be restored. Unknown modes
+  are rejected before any file is touched.
 - **Registry edits are backed up** as `workspace.json.bak-<timestamp>` before writing.
-- **No path comes from the client.** The dialog sends session ids; the host resolves and
-  validates every directory itself.
+- **No path comes from the client.** The dialog sends session ids and a mode; the host
+  resolves and validates every directory itself.
 - A session whose directory already disappeared is listed as `missing` and cannot be
   selected.
 
@@ -114,12 +121,15 @@ DSH 的「归档」只是隐藏：会话日志永远留在 `$DSH_HOME/sessions/<
 
 1. 点「工具」→ 弹出菜单，菜单项上标着已归档会话的数量；
 2. 点「清理已归档工作区…」→ 弹窗列出每个已归档会话（工作区、创建时间、占用大小、勾选框）；
-3. 勾选后确认 → 所选会话被**移动**到 `$DSH_HOME/.session-trash/<时间戳>/`，旁边生成
-   `restore-map.json` 记录原来的位置；
-4. 重启 DSH → 侧栏不再列出它们，字节一个不少躺在隔离区。
+3. 勾选后点「下一步」进入**确认页**：显示条数、合计大小、隔离目录，以及一个选项
+   **「直接删除文件（不保留隔离区）」**——不勾就只是移动（默认），勾了按钮会变成
+   「彻底删除」并提示无法恢复；
+4. 确认 → 所选会话被**移动**到 `$DSH_HOME/.session-trash/<时间戳>/`（勾了删除则直接删掉），
+   隔离模式下旁边生成 `restore-map.json` 记录原来的位置；
+5. 重启 DSH → 侧栏不再列出它们。
 
-**没有任何删除动作**。要恢复：把 `.session-trash/<时间戳>/<会话 id>` 搬回
-`restore-map.json` 里记录的路径，重启即可。
+**默认没有任何删除动作**。要恢复：把 `.session-trash/<时间戳>/<会话 id>` 搬回
+`restore-map.json` 里记录的路径，重启即可。勾了「直接删除」的那批无法恢复。
 
 安装：
 

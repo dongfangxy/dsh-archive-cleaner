@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0 — 2026-11-02
+
+- Add a delete mode: the confirmation page carries a checkbox
+  `Delete the files instead of quarantining them`. Left unticked (the default) the
+  directories are moved into `.session-trash/<stamp>/`; ticked, they are removed
+  outright, the quarantine row is hidden, the confirm button reads
+  `Delete permanently` and a red note states that nothing can be restored.
+- Host: `cleanArchivedSessions({ mode })` accepts `quarantine` (default) or
+  `purge`; an unknown mode is rejected before any file is touched.
+- The clean route takes `mode` from the request body and echoes it in the response,
+  so the client can report `Deleted N` versus `Cleaned N`.
+- Tests: purge deletes the directories and leaves no quarantine, unknown mode aborts.
+
 ## 0.1.3 — 2026-11-02
 
 - The empty state is explicit: with no archived sessions the dialog says so and offers

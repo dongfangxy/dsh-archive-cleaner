@@ -11,7 +11,7 @@
  * host process, because only the host knows where the profile actually lives.
  */
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 
@@ -196,48 +196,87 @@ function selectTargets(home, ids) {
 }
 
 /**
- * Move the given archived sessions into `.session-trash/<stamp>/` and prune the
- * registry entries that would otherwise keep listing them.
+ * Remove the given archived sessions and prune the registry entries that would
+ * otherwise keep listing them.
  *
- * Nothing is deleted: the quarantine directory keeps every byte, and a
- * `restore-map.json` records where each session came from.
+ * `mode: 'quarantine'` (the default) moves each directory into
+ * `.session-trash/<stamp>/` and writes a `restore-map.json`, so nothing is lost.
+ * `mode: 'purge'` deletes the directories outright; the caller asked for that and
+ * the response reports the bytes that will not come back.
  */
-export function cleanArchivedSessions({ home = resolveDshHome(), ids = [], now = Date.now() } = {}) {
+export function cleanArchivedSessions({ home = resolveDshHome(), ids = [], now = Date.now(), mode = 'quarantine' } = {}) {
+  if (mode !== 'quarantine' && mode !== 'purge') {
+    return { ok: false, error: `未知的清理模式：${mode}`, mode, moved: [], deleted: [], pruned: [], skipped: [] };
+  }
   if (!Array.isArray(ids) || ids.length === 0) {
-    return { ok: false, error: '没有选中任何会话', moved: [], pruned: [], skipped: [] };
+    return { ok: false, error: '没有选中任何会话', mode, moved: [], deleted: [], pruned: [], skipped: [] };
   }
   const stamp = new Date(now).toISOString().replace(/[-:]/g, '').replace(/\..+$/, '');
   const { targets, skipped } = selectTargets(home, ids);
   if (targets.length === 0) {
-    return { ok: false, error: '没有可清理的会话（可能已被移走或未归档）', moved: [], pruned: [], skipped, trashDir: null };
+    return {
+      ok: false,
+      error: '没有可清理的会话（可能已被移走或未归档）',
+      mode,
+      moved: [],
+      deleted: [],
+      pruned: [],
+      skipped,
+      trashDir: null,
+    };
   }
 
   const movable = targets.filter((target) => target.dir !== null);
   const pruneOnly = targets.filter((target) => target.dir === null).map((target) => target.id);
   const trashDir = join(home, TRASH_DIR, stamp);
-  if (movable.length > 0) mkdirSync(trashDir, { recursive: true });
 
   const moved = [];
+  const deleted = [];
   const restore = {};
-  for (const target of movable) {
-    const destination = join(trashDir, target.id);
-    try {
-      renameSync(target.dir, destination);
-    } catch (error) {
-      skipped.push({ id: target.id, reason: `move-failed: ${error.code ?? error.message}` });
-      continue;
+
+  if (mode === 'quarantine') {
+    if (movable.length > 0) mkdirSync(trashDir, { recursive: true });
+    for (const target of movable) {
+      const destination = join(trashDir, target.id);
+      try {
+        renameSync(target.dir, destination);
+      } catch (error) {
+        skipped.push({ id: target.id, reason: `move-failed: ${error.code ?? error.message}` });
+        continue;
+      }
+      moved.push({ id: target.id, from: target.dir, to: destination });
+      restore[target.id] = { from: target.dir, workspace: basename(dirname(target.dir)) };
     }
-    moved.push({ id: target.id, from: target.dir, to: destination });
-    restore[target.id] = { from: target.dir, workspace: basename(dirname(target.dir)) };
-  }
-  if (moved.length === 0 && pruneOnly.length === 0) {
-    return { ok: false, error: '所有会话都移动失败', moved, pruned: [], skipped, trashDir: null };
-  }
-  if (moved.length > 0) {
-    writeFileSync(join(trashDir, 'restore-map.json'), `${JSON.stringify(restore, null, 2)}\n`, 'utf8');
+    if (moved.length > 0) {
+      writeFileSync(join(trashDir, 'restore-map.json'), `${JSON.stringify(restore, null, 2)}\n`, 'utf8');
+    }
+  } else {
+    for (const target of movable) {
+      const bytes = directoryBytes(target.dir);
+      try {
+        rmSync(target.dir, { recursive: true, force: true });
+      } catch (error) {
+        skipped.push({ id: target.id, reason: `delete-failed: ${error.code ?? error.message}` });
+        continue;
+      }
+      deleted.push({ id: target.id, from: target.dir, bytes });
+    }
   }
 
-  const movedIds = new Set([...moved.map((row) => row.id), ...pruneOnly]);
+  if (moved.length === 0 && deleted.length === 0 && pruneOnly.length === 0) {
+    return {
+      ok: false,
+      error: mode === 'quarantine' ? '所有会话都移动失败' : '所有会话都删除失败',
+      mode,
+      moved,
+      deleted,
+      pruned: [],
+      skipped,
+      trashDir: null,
+    };
+  }
+
+  const movedIds = new Set([...moved, ...deleted].map((row) => row.id).concat(pruneOnly));
   const backups = [];
   const registryFile = join(home, ...REGISTRY);
   const registry = readJson(registryFile);
@@ -271,12 +310,16 @@ export function cleanArchivedSessions({ home = resolveDshHome(), ids = [], now =
 
   return {
     ok: true,
+    mode,
     moved,
+    deleted,
     pruned: pruneOnly,
     skipped,
     trashDir: moved.length > 0 ? trashDir : null,
     backups,
-    bytesFreed: moved.reduce((sum, row) => sum + directoryBytes(row.to), 0),
+    bytesFreed:
+      moved.reduce((sum, row) => sum + directoryBytes(row.to), 0) +
+      deleted.reduce((sum, row) => sum + row.bytes, 0),
   };
 }
 
@@ -339,7 +382,8 @@ export function apply(ctx) {
       try {
         const body = await readBody(request);
         const ids = Array.isArray(body?.ids) ? body.ids.slice(0, 500).map(String) : [];
-        sendJson(response, 200, cleanArchivedSessions({ home, ids }));
+        const mode = body?.mode === 'purge' ? 'purge' : 'quarantine';
+        sendJson(response, 200, cleanArchivedSessions({ home, ids, mode }));
       } catch (error) {
         sendJson(response, 400, { ok: false, error: String(error?.message ?? error), moved: [] });
       }

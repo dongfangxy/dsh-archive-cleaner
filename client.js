@@ -35,8 +35,14 @@ window.__ModuleLoader__.load({
       confirmLead: '即将清理',
       confirmTarget: '隔离目录',
       confirmNote: '不会删除任何文件。会话被移动到隔离区后，随时可以按 restore-map.json 搬回原路径。',
-      confirmBusy: '正在移动…',
+      confirmBusy: '正在处理…',
       confirmNow: '确认清理',
+      confirmDelete: '彻底删除',
+      purgeLabel: '直接删除文件（不保留隔离区）',
+      purgeHint: '勾选后文件被彻底删除，无法恢复',
+      purgeNote: '文件将被彻底删除：没有隔离区，也没有 restore-map.json，删除后无法找回。',
+      deletedVerb: '已删除',
+      purgeFailed: '删除失败',
       retry: '重试',
       emptySelection: '请先勾选要清理的会话',
       movedVerb: '已清理',
@@ -72,8 +78,15 @@ window.__ModuleLoader__.load({
       confirmTarget: 'Quarantine folder',
       confirmNote:
         'No file is deleted. Once moved, a session can be restored by following restore-map.json.',
-      confirmBusy: 'Moving…',
+      confirmBusy: 'Working…',
       confirmNow: 'Confirm cleanup',
+      confirmDelete: 'Delete permanently',
+      purgeLabel: 'Delete the files instead of quarantining them',
+      purgeHint: 'The directories are removed and cannot be restored',
+      purgeNote:
+        'The directories will be deleted outright: no quarantine folder, no restore-map.json, no way back.',
+      deletedVerb: 'Deleted',
+      purgeFailed: 'Delete failed',
       retry: 'Retry',
       emptySelection: 'Select at least one session first',
       movedVerb: 'Cleaned',
@@ -135,11 +148,11 @@ window.__ModuleLoader__.load({
       return body;
     }
 
-    async function clean(ids) {
+    async function clean(ids, mode) {
       const response = await fetch('/archive-cleaner/clean', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ids }),
+        body: JSON.stringify({ ids, mode }),
       });
       const body = await response.json().catch(() => null);
       if (body === null) throw new Error(`HTTP ${response.status}`);
@@ -286,6 +299,26 @@ window.__ModuleLoader__.load({
         lineHeight: '18px',
         color: tokens.secondary,
       },
+      summaryWarn: {
+        margin: 0,
+        padding: '8px 10px',
+        borderRadius: 'var(--dsw-radius-sm, 8px)',
+        background: tokens.dangerHover,
+        fontSize: '12px',
+        lineHeight: '18px',
+        color: tokens.warn,
+      },
+      purgeRow: {
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '8px',
+        padding: '8px 10px',
+        borderRadius: 'var(--dsw-radius-sm, 8px)',
+        border: `1px solid ${tokens.border}`,
+        cursor: 'pointer',
+      },
+      purgeLabel: { display: 'block', fontSize: '13px', color: tokens.label },
+      purgeHint: { display: 'block', fontSize: '11px', color: tokens.tertiary, marginTop: '2px' },
       footer: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', padding: '12px 20px' },
       button: {
         padding: '7px 14px',
@@ -335,6 +368,8 @@ window.__ModuleLoader__.load({
       const [error, setError] = React.useState('');
       const [selected, setSelected] = React.useState(() => new Set());
       const [phase, setPhase] = React.useState('select');
+      // Second switch of the confirm step: quarantine (default) or delete outright.
+      const [purge, setPurge] = React.useState(false);
       const [busy, setBusy] = React.useState(false);
       const [notice, setNotice] = React.useState(null);
 
@@ -346,6 +381,7 @@ window.__ModuleLoader__.load({
             setData(body);
             setSelected(new Set());
             setPhase('select');
+            setPurge(false);
             setState('ready');
           })
           .catch((cause) => {
@@ -390,20 +426,23 @@ window.__ModuleLoader__.load({
       const submit = async () => {
         setBusy(true);
         setNotice(null);
+        const mode = purge ? 'purge' : 'quarantine';
         try {
-          const result = await clean([...selected]);
+          const result = await clean([...selected], mode);
           const skipped = result.skipped?.length ?? 0;
-          const movedCount = result.moved.length;
+          const verb = result.mode === 'purge' ? t('deletedVerb') : t('movedVerb');
+          const affected = result.mode === 'purge' ? result.deleted.length : result.moved.length;
           const pruned = result.pruned?.length ?? 0;
           const size = formatBytes(result.bytesFreed ?? 0);
-          const parts = [`${t('movedVerb')} ${movedCount} ${t('unit')}${movedCount > 0 ? ` (${size})` : ''}`];
+          const parts = [`${verb} ${affected} ${t('unit')}${affected > 0 ? ` (${size})` : ''}`];
           if (pruned > 0) parts.push(`${pruned} ${t('entriesDropped')}`);
           if (skipped > 0) parts.push(`${t('skippedWord')} ${skipped}`);
           if (result.trashDir) parts.push(`→ ${result.trashDir}`);
           setNotice({ kind: 'ok', text: `${parts.join(' · ')}. ${t('restartHint')}` });
           load();
         } catch (cause) {
-          setNotice({ kind: 'error', text: `${t('cleanFailed')}: ${String((cause && cause.message) || cause)}` });
+          const failed = mode === 'purge' ? t('purgeFailed') : t('cleanFailed');
+          setNotice({ kind: 'error', text: `${failed}: ${String((cause && cause.message) || cause)}` });
         } finally {
           setBusy(false);
         }
@@ -434,13 +473,31 @@ window.__ModuleLoader__.load({
                           `${pickedWithFiles.length} ${t('unit')} · ${pickedStale.length} ${t('entriesDropped')}`,
                         )
                       : null,
+                    purge
+                      ? null
+                      : h(
+                          'div',
+                          { style: styles.summaryRow },
+                          h('span', { style: styles.summaryKey }, t('confirmTarget')),
+                          h('span', { style: styles.summaryPath }, data?.trashRoot ?? ''),
+                        ),
                     h(
-                      'div',
-                      { style: styles.summaryRow },
-                      h('span', { style: styles.summaryKey }, t('confirmTarget')),
-                      h('span', { style: styles.summaryPath }, data?.trashRoot ?? ''),
+                      'label',
+                      { style: styles.purgeRow },
+                      h('input', {
+                        type: 'checkbox',
+                        checked: purge,
+                        disabled: busy,
+                        onChange: () => setPurge(!purge),
+                      }),
+                      h(
+                        'span',
+                        null,
+                        h('span', { style: styles.purgeLabel }, t('purgeLabel')),
+                        h('span', { style: styles.purgeHint }, t('purgeHint')),
+                      ),
                     ),
-                    h('p', { style: styles.summaryNote }, t('confirmNote')),
+                    h('p', { style: purge ? styles.summaryWarn : styles.summaryNote }, purge ? t('purgeNote') : t('confirmNote')),
                   )
                 : h(
                     React.Fragment,
@@ -521,7 +578,7 @@ window.__ModuleLoader__.load({
                     disabled: busy,
                     onClick: submit,
                   },
-                  busy ? t('confirmBusy') : t('confirmNow'),
+                  busy ? t('confirmBusy') : purge ? t('confirmDelete') : t('confirmNow'),
                 ),
               )
             : h(

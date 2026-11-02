@@ -191,6 +191,40 @@ test('an archived id whose directory is gone only loses its registry entry', () 
   }
 });
 
+test('purge mode deletes the directories instead of quarantining them', () => {
+  const home = profile();
+  try {
+    const result = cleanArchivedSessions({ home, ids: [SESSION_A, SESSION_B], mode: 'purge', now: Date.UTC(2026, 0, 2, 3, 4, 5) });
+    assert.equal(result.ok, true);
+    assert.equal(result.mode, 'purge');
+    assert.equal(result.moved.length, 0);
+    assert.equal(result.deleted.length, 2);
+    assert.equal(result.trashDir, null);
+    assert.equal(result.bytesFreed, 3072);
+    assert.equal(existsSync(join(home, 'sessions', '--D-demo--', SESSION_A)), false);
+    assert.equal(existsSync(join(home, 'sessions', '--D-demo--', SESSION_B)), false);
+    assert.equal(existsSync(join(home, '.session-trash')), false);
+
+    const registry = readJson(join(home, 'storages', 'workspace.json'));
+    assert.deepEqual(registry.global.archivedSessionIds, []);
+    assert.deepEqual(registry.tables.workspaces['w-1'].sessionIds, [SESSION_C]);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('an unknown cleanup mode is rejected before touching anything', () => {
+  const home = profile();
+  try {
+    const result = cleanArchivedSessions({ home, ids: [SESSION_A], mode: 'shred' });
+    assert.equal(result.ok, false);
+    assert.match(result.error, /未知的清理模式/);
+    assert.equal(existsSync(join(home, 'sessions', '--D-demo--', SESSION_A)), true);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test('directoryBytes sums nested files and ignores missing paths', () => {
   const home = profile();
   try {

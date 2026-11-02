@@ -1,6 +1,6 @@
 {
   "name": "dsh-archive-cleaner",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "DeepSeek Harness bundle: list archived sessions from a Tools entry at the sidebar foot and move the selected ones to a quarantine folder.",
   "keywords": [
     "deepseek-harness",
