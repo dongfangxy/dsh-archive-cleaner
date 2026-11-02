@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 import { cleanArchivedSessions, directoryBytes, listArchivedSessions, resolveDshHome } from '../index.js';
@@ -48,9 +48,13 @@ function readJson(file) {
 }
 
 test('resolveDshHome honours DSH_HOME and falls back to ~/.dsh', () => {
-  assert.equal(resolveDshHome({ DSH_HOME: 'D:\\data' }, 'C:\\Users\\x'), 'D:\\data');
-  assert.equal(resolveDshHome({}, 'C:\\Users\\x'), join('C:\\Users\\x', '.dsh'));
-  assert.equal(resolveDshHome({ DSH_HOME: '   ' }, 'C:\\Users\\x'), join('C:\\Users\\x', '.dsh'));
+  // Platform-neutral paths: a literal "D:\data" is not absolute on POSIX, and
+  // resolve() would anchor it to the working directory.
+  const configured = join(tmpdir(), 'dsh-home-configured');
+  const home = join(tmpdir(), 'dsh-home-user');
+  assert.equal(resolveDshHome({ DSH_HOME: configured }, home), resolve(configured));
+  assert.equal(resolveDshHome({}, home), join(home, '.dsh'));
+  assert.equal(resolveDshHome({ DSH_HOME: '   ' }, home), join(home, '.dsh'));
 });
 
 test('lists only archived sessions, with size and workspace', () => {
