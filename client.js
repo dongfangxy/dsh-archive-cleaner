@@ -18,6 +18,7 @@ window.__ModuleLoader__.load({
       menuTitle: '工具',
       menuClean: '清理已归档工作区…',
       menuCleanHint: '把已归档会话移到隔离区，并从侧栏移除',
+      menuEmpty: '没有可清理的归档会话',
       dialogTitle: '清理已归档工作区',
       dialogIntro: '归档只是隐藏：会话文件仍完整保留在磁盘上。勾选后会被移到隔离区（不删除），随时可以搬回来。',
       loading: '正在读取已归档会话…',
@@ -52,6 +53,7 @@ window.__ModuleLoader__.load({
       menuTitle: 'Tools',
       menuClean: 'Clean archived workspaces…',
       menuCleanHint: 'Move archived sessions to a quarantine folder and drop them from the sidebar',
+      menuEmpty: 'Nothing to clean',
       dialogTitle: 'Clean archived workspaces',
       dialogIntro:
         'Archiving only hides a session: its log stays on disk. Selected sessions are moved to a quarantine folder (not deleted) and can be restored later.',
@@ -439,7 +441,6 @@ window.__ModuleLoader__.load({
                       h('span', { style: styles.summaryPath }, data?.trashRoot ?? ''),
                     ),
                     h('p', { style: styles.summaryNote }, t('confirmNote')),
-                    notice ? h('div', { style: styles.notice(notice.kind === 'error' ? 'error' : 'ok') }, notice.text) : null,
                   )
                 : h(
                     React.Fragment,
@@ -488,12 +489,25 @@ window.__ModuleLoader__.load({
                         );
                       }),
                     ),
-                    notice ? h('div', { style: styles.notice(notice.kind === 'error' ? 'error' : 'ok') }, notice.text) : null,
                   );
+
+      // Rendered outside the body branches: after a cleanup that empties the list,
+      // the success line must stay visible above the "nothing left" message.
+      const noticeNode = notice
+        ? h('div', { style: styles.notice(notice.kind === 'error' ? 'error' : 'ok') }, notice.text)
+        : null;
 
       const footer =
         state !== 'ready' || sessions.length === 0
-          ? h('div', { style: styles.footer }, h('button', { type: 'button', style: styles.button, onClick: onClose }, t('cancel')))
+          ? h(
+              'div',
+              { style: styles.footer },
+              h(
+                'button',
+                { type: 'button', style: styles.button, onClick: onClose },
+                sessions.length === 0 && state === 'ready' ? t('close') : t('cancel'),
+              ),
+            )
           : phase === 'confirm'
             ? h(
                 'div',
@@ -557,6 +571,7 @@ window.__ModuleLoader__.load({
               h('p', { style: styles.intro }, t('dialogIntro')),
             ),
             body,
+            noticeNode,
             footer,
           ),
         ),
@@ -662,7 +677,7 @@ window.__ModuleLoader__.load({
                     'span',
                     { style: styles.menuText },
                     h('span', null, t('menuClean')),
-                    h('span', { style: styles.menuHint }, t('menuCleanHint')),
+                    h('span', { style: styles.menuHint }, count === 0 ? t('menuEmpty') : t('menuCleanHint')),
                   ),
                   count === null ? null : h('span', { style: styles.menuCount }, String(count)),
                 ),

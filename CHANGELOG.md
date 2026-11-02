@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3 — 2026-11-02
+
+- The empty state is explicit: with no archived sessions the dialog says so and offers
+  only Close, and the Tools menu item labels itself `没有可清理的归档会话`.
+- Keep the result line visible when a cleanup empties the list (it used to be replaced by
+  the empty state before the user could read it).
+- Test: an empty archive set reports `totals: 0` instead of an error.
+
 ## 0.1.2 — 2026-11-02
 
 - Fix: the dialog was translucent because it reused `--dsw-menu-surface-fill`, a

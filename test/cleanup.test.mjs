@@ -75,6 +75,22 @@ test('lists only archived sessions, with size and workspace', () => {
   }
 });
 
+test('an empty archive set is reported as empty, not as an error', () => {
+  const home = profile();
+  try {
+    const registryFile = join(home, 'storages', 'workspace.json');
+    const registry = readJson(registryFile);
+    registry.global.archivedSessionIds = [];
+    writeFileSync(registryFile, JSON.stringify(registry));
+    const listing = listArchivedSessions({ home });
+    assert.equal(listing.ok, true);
+    assert.deepEqual(listing.sessions, []);
+    assert.deepEqual(listing.totals, { count: 0, bytes: 0, missing: 0 });
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test('reports sessions whose directory is already gone instead of failing', () => {
   const home = profile();
   try {
