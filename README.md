@@ -1,5 +1,8 @@
 # dsh-archive-cleaner
 
+[![test](https://github.com/dongfangxy/dsh-archive-cleaner/actions/workflows/ci.yml/badge.svg)](https://github.com/dongfangxy/dsh-archive-cleaner/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **DeepSeek Harness（DSH）插件：清理已归档的对话/会话，释放磁盘空间。**
 
 [中文说明](#中文说明) · [English](#english) · [更新日志](CHANGELOG.md) · [MIT License](LICENSE)
