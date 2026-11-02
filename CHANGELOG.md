@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 — 2026-11-02
+
+- Fix: the dialog was translucent because it reused `--dsw-menu-surface-fill`, a
+  menu token that expects a backdrop blur. Dialogs now paint with the opaque
+  `--dsw-alias-bg-layer-1`; the popover menu keeps the translucent menu surface.
+- Darken and blur the scrim so the page behind cannot compete with the list.
+
 ## 0.1.1 — 2026-11-02
 
 - Fix: clicking the menu item did nothing. The outside-click handler only ignored
