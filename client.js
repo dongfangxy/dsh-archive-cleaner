@@ -11,8 +11,8 @@ window.__ModuleLoader__.load({
 
     const NS = 'archive-cleaner';
 
-    // Dictionary values stay plain strings: the host's `t()` returns the string
-    // for a key, so sentences with numbers are composed in code instead.
+    // Dictionary values stay plain strings: `t(key)` returns the string, so
+    // sentences containing numbers are composed in code.
     const zh = {
       action: '工具',
       menuTitle: '工具',
@@ -22,20 +22,26 @@ window.__ModuleLoader__.load({
       dialogIntro: '归档只是隐藏：会话文件仍完整保留在磁盘上。勾选后会被移到隔离区（不删除），随时可以搬回来。',
       loading: '正在读取已归档会话…',
       empty: '没有已归档会话，侧栏已经很干净了。',
-      missing: '（磁盘上已不存在）',
+      missing: '（磁盘上已不存在，选中只清登记）',
       unknownWorkspace: '（未记录工作区）',
       selectAll: '全选',
       clearAll: '清空',
       cancel: '取消',
       close: '关闭',
-      confirm: '移到隔离区',
+      next: '下一步',
+      back: '返回',
+      confirmTitle: '确认清理',
+      confirmLead: '即将清理',
+      confirmTarget: '隔离目录',
+      confirmNote: '不会删除任何文件。会话被移动到隔离区后，随时可以按 restore-map.json 搬回原路径。',
       confirmBusy: '正在移动…',
+      confirmNow: '确认清理',
       retry: '重试',
       emptySelection: '请先勾选要清理的会话',
       movedVerb: '已清理',
       unit: '个会话',
       skippedWord: '跳过',
-      entriesDropped: '条空登记（文件已不在）',
+      entriesDropped: '条空登记',
       restartHint: '重启 DSH 后侧栏不再列出。',
       loadFailed: '读取失败',
       cleanFailed: '清理失败',
@@ -51,20 +57,27 @@ window.__ModuleLoader__.load({
         'Archiving only hides a session: its log stays on disk. Selected sessions are moved to a quarantine folder (not deleted) and can be restored later.',
       loading: 'Reading archived sessions…',
       empty: 'No archived sessions — the sidebar is already clean.',
-      missing: '(no longer on disk)',
+      missing: '(no files left — removes the registry entry only)',
       unknownWorkspace: '(workspace unknown)',
       selectAll: 'Select all',
       clearAll: 'Clear',
       cancel: 'Cancel',
       close: 'Close',
-      confirm: 'Move to quarantine',
+      next: 'Next',
+      back: 'Back',
+      confirmTitle: 'Confirm cleanup',
+      confirmLead: 'About to clean',
+      confirmTarget: 'Quarantine folder',
+      confirmNote:
+        'No file is deleted. Once moved, a session can be restored by following restore-map.json.',
       confirmBusy: 'Moving…',
+      confirmNow: 'Confirm cleanup',
       retry: 'Retry',
       emptySelection: 'Select at least one session first',
       movedVerb: 'Cleaned',
       unit: 'session(s)',
       skippedWord: 'skipped',
-      entriesDropped: 'stale registry entrie(s)',
+      entriesDropped: 'stale entrie(s)',
       restartHint: 'Restart DSH to drop them from the sidebar.',
       loadFailed: 'Could not read the list',
       cleanFailed: 'Cleanup failed',
@@ -81,6 +94,7 @@ window.__ModuleLoader__.load({
       accent: 'var(--dsw-alias-button-primary-fill, #4d6bfe)',
       shadow: 'var(--dsw-specific-menu, 0 10px 30px rgba(0,0,0,0.35))',
       radius: 'var(--dsw-radius-md, 10px)',
+      warn: 'var(--dsw-alias-state-warn-label, #ffb454)',
     };
 
     /** "12.3 MB" — one decimal is enough for a size column. */
@@ -146,7 +160,8 @@ window.__ModuleLoader__.load({
       menu: {
         position: 'fixed',
         zIndex: 2147483000,
-        minWidth: '260px',
+        minWidth: '264px',
+        maxWidth: '320px',
         padding: '6px',
         borderRadius: tokens.radius,
         background: tokens.surface,
@@ -246,6 +261,21 @@ window.__ModuleLoader__.load({
       },
       rowMeta: { fontSize: '11px', color: tokens.tertiary, marginTop: '2px' },
       rowSize: { fontSize: '11px', color: tokens.secondary, fontVariantNumeric: 'tabular-nums' },
+      summary: { padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: '10px' },
+      summaryLead: { margin: 0, fontSize: '13px', color: tokens.label },
+      summaryValue: { margin: 0, fontSize: '20px', fontWeight: 600 },
+      summaryRow: { display: 'grid', gridTemplateColumns: '96px 1fr', gap: '10px', fontSize: '12px' },
+      summaryKey: { color: tokens.tertiary },
+      summaryPath: { color: tokens.secondary, wordBreak: 'break-all' },
+      summaryNote: {
+        margin: 0,
+        padding: '8px 10px',
+        borderRadius: 'var(--dsw-radius-sm, 8px)',
+        background: tokens.hover,
+        fontSize: '12px',
+        lineHeight: '18px',
+        color: tokens.secondary,
+      },
       footer: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', padding: '12px 20px' },
       button: {
         padding: '7px 14px',
@@ -267,6 +297,16 @@ window.__ModuleLoader__.load({
         fontSize: '13px',
         cursor: 'pointer',
       },
+      danger: {
+        padding: '7px 14px',
+        borderRadius: 'var(--dsw-radius-sm, 8px)',
+        border: '1px solid transparent',
+        background: 'var(--dsw-alias-state-warn-fill, #b8541f)',
+        color: '#fff',
+        font: 'inherit',
+        fontSize: '13px',
+        cursor: 'pointer',
+      },
       notice: (kind) => ({
         margin: '0 20px 8px',
         padding: '8px 10px',
@@ -274,7 +314,7 @@ window.__ModuleLoader__.load({
         fontSize: '12px',
         lineHeight: '18px',
         wordBreak: 'break-all',
-        color: kind === 'error' ? 'var(--dsw-alias-state-warn-label, #ff8a8a)' : tokens.secondary,
+        color: kind === 'error' ? tokens.warn : tokens.secondary,
         background: kind === 'error' ? tokens.dangerHover : tokens.hover,
       }),
     };
@@ -284,6 +324,7 @@ window.__ModuleLoader__.load({
       const [data, setData] = React.useState(null);
       const [error, setError] = React.useState('');
       const [selected, setSelected] = React.useState(() => new Set());
+      const [phase, setPhase] = React.useState('select');
       const [busy, setBusy] = React.useState(false);
       const [notice, setNotice] = React.useState(null);
 
@@ -294,6 +335,7 @@ window.__ModuleLoader__.load({
           .then((body) => {
             setData(body);
             setSelected(new Set());
+            setPhase('select');
             setState('ready');
           })
           .catch((cause) => {
@@ -306,17 +348,17 @@ window.__ModuleLoader__.load({
 
       React.useEffect(() => {
         const onKey = (event) => {
-          if (event.key === 'Escape') onClose();
+          if (event.key === 'Escape' && !busy) onClose();
         };
         document.addEventListener('keydown', onKey);
         return () => document.removeEventListener('keydown', onKey);
-      }, [onClose]);
+      }, [busy, onClose]);
 
       const sessions = data?.sessions ?? [];
-      const selectable = sessions;
-      const selectedBytes = sessions
-        .filter((row) => selected.has(row.id))
-        .reduce((sum, row) => sum + row.bytes, 0);
+      const picked = sessions.filter((row) => selected.has(row.id));
+      const pickedWithFiles = picked.filter((row) => row.dir !== null);
+      const pickedStale = picked.filter((row) => row.dir === null);
+      const pickedBytes = picked.reduce((sum, row) => sum + row.bytes, 0);
 
       const toggle = (id) => {
         setSelected((previous) => {
@@ -329,17 +371,13 @@ window.__ModuleLoader__.load({
 
       const toggleAll = () => {
         setSelected((previous) =>
-          previous.size === selectable.length && selectable.length > 0
+          previous.size === sessions.length && sessions.length > 0
             ? new Set()
-            : new Set(selectable.map((row) => row.id)),
+            : new Set(sessions.map((row) => row.id)),
         );
       };
 
       const submit = async () => {
-        if (selected.size === 0) {
-          setNotice({ kind: 'error', text: t('emptySelection') });
-          return;
-        }
         setBusy(true);
         setNotice(null);
         try {
@@ -361,6 +399,136 @@ window.__ModuleLoader__.load({
         }
       };
 
+      const body =
+        state === 'loading'
+          ? h('div', { style: styles.notice('ok') }, t('loading'))
+          : state === 'failed'
+            ? h(
+                'div',
+                { style: styles.notice('error') },
+                `${t('loadFailed')}: ${error} `,
+                h('button', { type: 'button', style: styles.linkButton, onClick: load }, t('retry')),
+              )
+            : sessions.length === 0
+              ? h('div', { style: styles.notice('ok') }, t('empty'))
+              : phase === 'confirm'
+                ? h(
+                    'div',
+                    { style: styles.summary },
+                    h('p', { style: styles.summaryLead }, t('confirmLead')),
+                    h('p', { style: styles.summaryValue }, `${picked.length} · ${formatBytes(pickedBytes)}`),
+                    pickedStale.length > 0
+                      ? h(
+                          'p',
+                          { style: styles.summaryLead },
+                          `${pickedWithFiles.length} ${t('unit')} · ${pickedStale.length} ${t('entriesDropped')}`,
+                        )
+                      : null,
+                    h(
+                      'div',
+                      { style: styles.summaryRow },
+                      h('span', { style: styles.summaryKey }, t('confirmTarget')),
+                      h('span', { style: styles.summaryPath }, data?.trashRoot ?? ''),
+                    ),
+                    h('p', { style: styles.summaryNote }, t('confirmNote')),
+                    notice ? h('div', { style: styles.notice(notice.kind === 'error' ? 'error' : 'ok') }, notice.text) : null,
+                  )
+                : h(
+                    React.Fragment,
+                    null,
+                    h(
+                      'div',
+                      { style: styles.toolbar },
+                      h(
+                        'button',
+                        { type: 'button', style: styles.linkButton, onClick: toggleAll },
+                        selected.size === sessions.length && sessions.length > 0 ? t('clearAll') : t('selectAll'),
+                      ),
+                      h('span', { style: styles.counter }, `${selected.size} / ${sessions.length} · ${formatBytes(pickedBytes)}`),
+                    ),
+                    h(
+                      'div',
+                      { style: styles.list },
+                      sessions.map((row) => {
+                        const missing = row.dir === null;
+                        const label = row.workspace || row.cwd || t('unknownWorkspace');
+                        return h(
+                          'label',
+                          {
+                            key: row.id,
+                            style: { ...styles.row, opacity: missing ? 0.6 : 1, cursor: 'pointer' },
+                            onMouseEnter: (event) => {
+                              event.currentTarget.style.background = tokens.hover;
+                            },
+                            onMouseLeave: (event) => {
+                              event.currentTarget.style.background = 'transparent';
+                            },
+                          },
+                          h('input', {
+                            type: 'checkbox',
+                            checked: selected.has(row.id),
+                            disabled: busy,
+                            onChange: () => toggle(row.id),
+                          }),
+                          h(
+                            'span',
+                            { style: { minWidth: '0px' } },
+                            h('div', { style: styles.rowTitle, title: label }, `${label}${missing ? ` ${t('missing')}` : ''}`),
+                            h('div', { style: styles.rowMeta }, [formatDate(row.createdAt), row.id].filter(Boolean).join(' · ')),
+                          ),
+                          h('span', { style: styles.rowSize }, formatBytes(row.bytes)),
+                        );
+                      }),
+                    ),
+                    notice ? h('div', { style: styles.notice(notice.kind === 'error' ? 'error' : 'ok') }, notice.text) : null,
+                  );
+
+      const footer =
+        state !== 'ready' || sessions.length === 0
+          ? h('div', { style: styles.footer }, h('button', { type: 'button', style: styles.button, onClick: onClose }, t('cancel')))
+          : phase === 'confirm'
+            ? h(
+                'div',
+                { style: styles.footer },
+                h('button', { type: 'button', style: styles.button, onClick: () => setPhase('select'), disabled: busy }, t('back')),
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    style: { ...styles.danger, opacity: busy ? 0.6 : 1, cursor: busy ? 'default' : 'pointer' },
+                    disabled: busy,
+                    onClick: submit,
+                  },
+                  busy ? t('confirmBusy') : t('confirmNow'),
+                ),
+              )
+            : h(
+                'div',
+                { style: styles.footer },
+                h('button', { type: 'button', style: styles.button, onClick: onClose }, t('cancel')),
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    style: {
+                      ...styles.primary,
+                      opacity: selected.size === 0 ? 0.5 : 1,
+                      cursor: selected.size === 0 ? 'default' : 'pointer',
+                    },
+                    disabled: selected.size === 0,
+                    onClick: () => {
+                      if (selected.size === 0) {
+                        setNotice({ kind: 'error', text: t('emptySelection') });
+                        return;
+                      }
+                      setNotice(null);
+                      setPhase('confirm');
+                    },
+                  },
+                  `${t('next')} (${selected.size})`,
+                ),
+              );
+
       return ReactDOM.createPortal(
         h(
           'div',
@@ -368,7 +536,7 @@ window.__ModuleLoader__.load({
             style: styles.backdrop,
             role: 'presentation',
             onMouseDown: (event) => {
-              if (event.target === event.currentTarget) onClose();
+              if (!busy && event.target === event.currentTarget) onClose();
             },
           },
           h(
@@ -377,97 +545,11 @@ window.__ModuleLoader__.load({
             h(
               'div',
               { style: styles.header },
-              h('h2', { style: styles.title }, t('dialogTitle')),
+              h('h2', { style: styles.title }, phase === 'confirm' ? t('confirmTitle') : t('dialogTitle')),
               h('p', { style: styles.intro }, t('dialogIntro')),
             ),
-            state === 'failed'
-              ? h(
-                  'div',
-                  { style: styles.notice('error') },
-                  `${t('loadFailed')}: ${error} `,
-                  h('button', { type: 'button', style: styles.linkButton, onClick: load }, t('retry')),
-                )
-              : null,
-            state === 'loading' ? h('div', { style: styles.notice('ok') }, t('loading')) : null,
-            state === 'ready' && sessions.length === 0
-              ? h('div', { style: styles.notice('ok') }, t('empty'))
-              : null,
-            state === 'ready' && sessions.length > 0
-              ? h(
-                  'div',
-                  { style: styles.toolbar },
-                  h(
-                    'button',
-                    { type: 'button', style: styles.linkButton, onClick: toggleAll },
-                    selected.size > 0 && selected.size === selectable.length ? t('clearAll') : t('selectAll'),
-                  ),
-                  h(
-                    'span',
-                    { style: styles.counter },
-                    `${selected.size} / ${selectable.length} · ${formatBytes(selectedBytes)}`,
-                  ),
-                )
-              : null,
-            state === 'ready' && sessions.length > 0
-              ? h(
-                  'div',
-                  { style: styles.list },
-                  sessions.map((row) => {
-                    const missing = row.dir === null;
-                    const label = row.workspace || row.cwd || t('unknownWorkspace');
-                    return h(
-                      'label',
-                      {
-                        key: row.id,
-                        style: { ...styles.row, opacity: missing ? 0.55 : 1, cursor: 'pointer' },
-                        onMouseEnter: (event) => {
-                          event.currentTarget.style.background = tokens.hover;
-                        },
-                        onMouseLeave: (event) => {
-                          event.currentTarget.style.background = 'transparent';
-                        },
-                      },
-                      h('input', {
-                        type: 'checkbox',
-                        checked: selected.has(row.id),
-                        disabled: busy,
-                        onChange: () => toggle(row.id),
-                      }),
-                      h(
-                        'span',
-                        { style: { minWidth: '0px' } },
-                        h(
-                          'div',
-                          { style: styles.rowTitle, title: label },
-                          `${label}${missing ? ` ${t('missing')}` : ''}`,
-                        ),
-                        h('div', { style: styles.rowMeta }, [formatDate(row.createdAt), row.id].filter(Boolean).join(' · ')),
-                      ),
-                      h('span', { style: styles.rowSize }, formatBytes(row.bytes)),
-                    );
-                  }),
-                )
-              : null,
-            notice
-              ? h('div', { style: styles.notice(notice.kind === 'error' ? 'error' : 'ok') }, notice.text)
-              : null,
-            h(
-              'div',
-              { style: styles.footer },
-              h('button', { type: 'button', style: styles.button, onClick: onClose }, state === 'ready' ? t('close') : t('cancel')),
-              state === 'ready' && sessions.length > 0
-                ? h(
-                    'button',
-                    {
-                      type: 'button',
-                      style: { ...styles.primary, opacity: busy ? 0.6 : 1, cursor: busy ? 'default' : 'pointer' },
-                      disabled: busy,
-                      onClick: submit,
-                    },
-                    busy ? t('confirmBusy') : t('confirm'),
-                  )
-                : null,
-            ),
+            body,
+            footer,
           ),
         ),
         document.body,
@@ -480,6 +562,7 @@ window.__ModuleLoader__.load({
       const [count, setCount] = React.useState(null);
       const [anchor, setAnchor] = React.useState(null);
       const triggerRef = React.useRef(null);
+      const menuRef = React.useRef(null);
 
       const openMenu = React.useCallback(() => {
         const rect = triggerRef.current?.getBoundingClientRect();
@@ -496,7 +579,10 @@ window.__ModuleLoader__.load({
           if (event.key === 'Escape') setMenuOpen(false);
         };
         const onDown = (event) => {
+          // The trigger and the menu are siblings, not nested: testing only the
+          // trigger would close the menu on mousedown and swallow the item click.
           if (triggerRef.current?.contains(event.target)) return;
+          if (menuRef.current?.contains(event.target)) return;
           setMenuOpen(false);
         };
         document.addEventListener('keydown', onKey);
@@ -510,7 +596,7 @@ window.__ModuleLoader__.load({
       const menuStyle = anchor
         ? {
             ...styles.menu,
-            left: `${Math.max(8, Math.min(anchor.left, window.innerWidth - 280))}px`,
+            left: `${Math.max(8, Math.min(anchor.left, window.innerWidth - 300))}px`,
             bottom: `${Math.max(8, window.innerHeight - anchor.top + 6)}px`,
           }
         : { ...styles.menu, left: '12px', bottom: '64px' };
@@ -539,39 +625,91 @@ window.__ModuleLoader__.load({
           wide ? h('span', null, t('action')) : null,
           wide ? h('span', { style: { marginLeft: 'auto', opacity: 0.5 } }, h(ChevronIcon, { size: 14 })) : null,
         ),
+        // Portalled: the sidebar footer may sit inside a transformed ancestor,
+        // which would make `position: fixed` resolve against it and clip the menu.
         menuOpen
-          ? h(
-              'div',
-              { style: menuStyle, role: 'menu', 'aria-label': t('menuTitle') },
-              h('div', { style: styles.menuTitle }, t('menuTitle')),
+          ? ReactDOM.createPortal(
               h(
-                'button',
-                {
-                  type: 'button',
-                  role: 'menuitem',
-                  style: styles.menuItem,
-                  onMouseEnter: (event) => {
-                    event.currentTarget.style.background = tokens.hover;
-                  },
-                  onMouseLeave: (event) => {
-                    event.currentTarget.style.background = 'transparent';
-                  },
-                  onClick: () => {
-                    setMenuOpen(false);
-                    setDialogOpen(true);
-                  },
-                },
+                'div',
+                { ref: menuRef, style: menuStyle, role: 'menu', 'aria-label': t('menuTitle') },
+                h('div', { style: styles.menuTitle }, t('menuTitle')),
                 h(
-                  'span',
-                  { style: styles.menuText },
-                  h('span', null, t('menuClean')),
-                  h('span', { style: styles.menuHint }, t('menuCleanHint')),
+                  'button',
+                  {
+                    type: 'button',
+                    role: 'menuitem',
+                    style: styles.menuItem,
+                    onMouseEnter: (event) => {
+                      event.currentTarget.style.background = tokens.hover;
+                    },
+                    onMouseLeave: (event) => {
+                      event.currentTarget.style.background = 'transparent';
+                    },
+                    onClick: () => {
+                      setMenuOpen(false);
+                      setDialogOpen(true);
+                    },
+                  },
+                  h(
+                    'span',
+                    { style: styles.menuText },
+                    h('span', null, t('menuClean')),
+                    h('span', { style: styles.menuHint }, t('menuCleanHint')),
+                  ),
+                  count === null ? null : h('span', { style: styles.menuCount }, String(count)),
                 ),
-                count === null ? null : h('span', { style: styles.menuCount }, String(count)),
               ),
+              document.body,
             )
           : null,
         dialogOpen ? h(CleanerDialog, { t, onClose: () => setDialogOpen(false) }) : null,
+      );
+    }
+
+    /**
+     * Secondary entry point in Settings → General. Kept because the sidebar
+     * footer seat is newer than the settings row slot: when a host renders the
+     * footer differently, this row still reaches the same dialog.
+     */
+    function SettingsRow({ t }) {
+      const [open, setOpen] = React.useState(false);
+      return h(
+        'div',
+        {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+            padding: '16px 0',
+            borderBottom: `1px solid ${tokens.border}`,
+          },
+        },
+        h(
+          'div',
+          { style: { display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '0px' } },
+          h('div', { style: { fontSize: '14px', color: tokens.label } }, t('dialogTitle')),
+          h('div', { style: { fontSize: '12px', color: tokens.secondary } }, t('menuCleanHint')),
+        ),
+        h(
+          'button',
+          {
+            type: 'button',
+            style: {
+              flex: '0 0 auto',
+              padding: '6px 14px',
+              fontSize: '13px',
+              borderRadius: 'var(--dsw-radius-sm, 8px)',
+              border: `1px solid ${tokens.border}`,
+              background: 'transparent',
+              color: tokens.label,
+              cursor: 'pointer',
+            },
+            onClick: () => setOpen(true),
+          },
+          t('action'),
+        ),
+        open ? h(CleanerDialog, { t, onClose: () => setOpen(false) }) : null,
       );
     }
 
@@ -585,6 +723,13 @@ window.__ModuleLoader__.load({
         ctx.slots.register(
           { name: 'sidebar.footer.action', id: 'archive-cleaner', order: 20, label: () => t('action') },
           (props) => h(ToolsAction, { ...props, t }),
+        ),
+      );
+
+      ctx.slots.inject('settings.general.item', () =>
+        ctx.slots.register(
+          { name: 'settings.general.item', id: 'archive-cleaner', order: 45 },
+          (props) => h(SettingsRow, { ...props, t }),
         ),
       );
     }
