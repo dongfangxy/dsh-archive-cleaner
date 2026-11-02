@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.1 — 2026-11-02
+
+- Fix: clicking the menu item did nothing. The outside-click handler only ignored
+  the trigger, so `mousedown` on the item closed the menu before `click` landed.
+- Fix: the menu is portalled to `document.body`; inside the sidebar footer a
+  transformed ancestor makes `position: fixed` resolve against itself and clip it.
+- Add the confirmation step: selecting rows only enables **Next**; the second page
+  repeats the count, the total size and the quarantine directory before cleaning.
+- Add a secondary entry under **Settings → General** for hosts that render the
+  sidebar footer differently.
+
 ## 0.1.0 — 2026-11-02
 
 First release.
