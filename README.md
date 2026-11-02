@@ -43,6 +43,18 @@ $DSH_HOME/sessions/<工作区>/<session-id>/session.v4.jsonl.zstd
 | 勾选「直接删除文件（不保留隔离区）」 | 同上，但目录被真正删除：没有隔离区、没有 restore-map，**不可恢复** |
 | 重启 DSH | 侧栏不再列出这些会话 |
 
+### 界面
+
+**1. 选择要清理的会话**——工作区路径、会话 id、占用大小；磁盘上已无文件的会标注
+「磁盘上已不存在，选中只清登记」。
+
+![清理弹窗：列出全部已归档会话](docs/dialog-list.png)
+
+**2. 二次确认**——条数、合计大小、隔离目录，以及「直接删除文件」选项。默认不删除，
+按钮是「确认清理」；勾选删除后按钮变成「彻底删除」。
+
+![确认清理：条数、大小、隔离目录与删除选项](docs/dialog-confirm.png)
+
 ### 两种清理模式
 
 | 模式 | 行为 | 可否恢复 |
@@ -135,6 +147,19 @@ session taking 10.2 MB.
 | Confirm | Selected sessions move to `$DSH_HOME/.session-trash/<timestamp>/` with a `restore-map.json` |
 | Tick **Delete the files instead of quarantining them** | Same flow, but the directories are removed: no quarantine, no restore map, **irreversible** |
 | Restart DSH | The sidebar stops listing them |
+
+### Screenshots
+
+**1. Choose what to clean** — workspace path, session id, size. Sessions whose files are
+already gone are marked *no longer on disk* and only lose their registry entry.
+
+![Cleanup dialog listing archived sessions](docs/dialog-list.png)
+
+**2. Confirm** — count, total size, quarantine folder, and the delete option. With the box
+unticked the button reads *Confirm cleanup*; ticking it switches the button to *Delete
+permanently*.
+
+![Confirmation page with count, size, quarantine folder and the delete option](docs/dialog-confirm.png)
 
 ### Two modes
 
