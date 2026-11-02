@@ -1,0 +1,7 @@
+# Bundle patch: one row in the profile's loader tree.
+#
+# `dsh-archive-cleaner` is the package name, so the loader resolves the Host half
+# from node_modules and mounts the Client half through `dsh.client`.
+- insert:
+    - id: archive-cleaner
+      name: dsh-archive-cleaner
